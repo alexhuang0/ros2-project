@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <memory>
+#include <numbers>
 
 #include "costmap_node.hpp"
 
@@ -56,14 +58,44 @@ void CostmapNode::markObstacle(int x_grid, int y_grid) {
   this->occupancyGrid[std::size(occupancyGrid) - y_grid][x_grid] = 100;
 }
 
-void CostmapNode::inflateObstacles() {}
+void CostmapNode::inflateObstacles() {
+  constexpr int max_cost{100};
+  constexpr double inflation_radius{1.0 / CostmapNode::RESOLUTION};
+
+  for (size_t i{0}; i < CostmapNode::GRIDSIZE; ++i) {
+    for (size_t j{0}; j < CostmapNode::GRIDSIZE; ++i) {
+      if (this->occupancyGrid[i][j] != 100)
+        continue;
+
+      // bounding box
+      int xMin = std::max(0, static_cast<int>(j - inflation_radius));
+      int xMax = std::min(CostmapNode::GRIDSIZE - 1,
+                          static_cast<int>(j + inflation_radius));
+      int yMin = std::max(0, static_cast<int>(i - inflation_radius));
+      int yMax = std::min(CostmapNode::GRIDSIZE - 1,
+                          static_cast<int>(i + inflation_radius));
+
+      for (size_t x{xMin}; x <= xMax; ++x) {
+        for (size_t y{yMin}; y <= yMax; ++y) {
+          double distance = std::sqrt((x - j) * (x - j) + (y - i) * (y - i));
+
+          // if distance from (i, j) > inflation_radius, disregard
+          if (distance > inflation_radius)
+            continue;
+
+          int cost = std::round(max_cost * (1 - (distance / inflation_radius)));
+
+          if (cost > this->occupancyGrid[i][j]) {
+            this->occupancyGrid[i][j] = cost;
+          }
+        }
+      }
+    }
+  }
+}
 
 void CostmapNode::publishCostmap(
     const sensor_msgs::msg::LaserScan::SharedPtr scan) {
-  // auto message = std_msgs::msg::String();
-  // message.data = "Hello, ROS 2!";
-  // RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
-  // string_pub_->publish(message);
   auto occGridMsg = nav_msgs::msg::OccupancyGrid();
   occGridMsg.header = scan->header;
 
