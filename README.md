@@ -10,3 +10,28 @@ These steps are to setup the monorepo to work on your own PC. We utilize docker 
 3. You're all set! You can begin the assignment by visiting the WATonomous Wiki.
 
 Link to Onboarding Assignment: https://wiki.watonomous.ca/
+
+## Fast robot development loop
+
+Start the development container and simulator from WSL:
+
+```bash
+MODE_OF_OPERATION=develop ./watod up -d --no-build gazeboserver robot_dev
+MODE_OF_OPERATION=develop ./watod -t robot_dev
+```
+
+Inside the container, source the repository shortcuts once per shell:
+
+```bash
+source /home/bolty/ament_ws/src/scripts/dev.sh
+```
+
+Then use:
+
+```bash
+cb    # Build the robot packages and source the install overlay
+run   # Build, then launch the robot
+```
+
+The script is stored in `scripts/dev.sh`, so it persists across container
+restarts and can be edited from VS Code on the WSL side.

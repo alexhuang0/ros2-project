@@ -50,6 +50,8 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh && \
 # Source and Build Artifact Cleanup 
 RUN rm -rf src/* build/* devel/* install/* log/*
 
-# Entrypoint will run before any CMD on launch. Sources ~/opt/<ROS_DISTRO>/setup.bash and ~/ament_ws/install/setup.bash
+# Set up ROS2 for both the entrypoint and interactive development shells.
 COPY docker/wato_ros_entrypoint.sh ${AMENT_WS}/wato_ros_entrypoint.sh
+RUN sed -i '\|source /home/bolty/ament_ws/install/setup.bash|d;\|source /opt/ros/\${ROS_DISTRO}/setup.bash|d' /root/.bashrc && \
+    sed -i '/^\[ -z "\$PS1" \] && return/i source /opt/ros/${ROS_DISTRO}/setup.bash' /root/.bashrc
 ENTRYPOINT ["./wato_ros_entrypoint.sh"]
