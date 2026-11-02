@@ -3,6 +3,7 @@
 #include <cmath>
 #include <memory>
 #include <numbers>
+#include <vector>
 
 #include "costmap_node.hpp"
 
@@ -19,8 +20,8 @@ CostmapNode::CostmapNode()
 
 void CostmapNode::lidar_callback(
     const sensor_msgs::msg::LaserScan::SharedPtr scan) {
-  RCLCPP_INFO(this->get_logger(), "Received a scan: %zu scan numbers",
-              scan->ranges.size());
+  // RCLCPP_INFO(this->get_logger(), "Received a scan: %zu scan numbers",
+  //             scan->ranges.size());
 
   // Step 1: Initialize costmap
   initializeCostmap();
@@ -55,7 +56,11 @@ void CostmapNode::convertToGrid(double range, double angle, int &x_grid,
 }
 
 void CostmapNode::markObstacle(int x_grid, int y_grid) {
-  this->occupancyGrid[std::size(occupancyGrid) - y_grid][x_grid] = 100;
+
+  if (x_grid >= 0 && x_grid < CostmapNode::GRIDSIZE && y_grid >= 0 &&
+      y_grid < CostmapNode::GRIDSIZE) {
+    this->occupancyGrid[CostmapNode::GRIDSIZE - y_grid][x_grid] = 100;
+  }
 }
 
 void CostmapNode::inflateObstacles() {
@@ -63,7 +68,7 @@ void CostmapNode::inflateObstacles() {
   constexpr double inflation_radius{1.0 / CostmapNode::RESOLUTION};
 
   for (size_t i{0}; i < CostmapNode::GRIDSIZE; ++i) {
-    for (size_t j{0}; j < CostmapNode::GRIDSIZE; ++i) {
+    for (size_t j{0}; j < CostmapNode::GRIDSIZE; ++j) {
       if (this->occupancyGrid[i][j] != 100)
         continue;
 
@@ -75,8 +80,8 @@ void CostmapNode::inflateObstacles() {
       int yMax = std::min(CostmapNode::GRIDSIZE - 1,
                           static_cast<int>(i + inflation_radius));
 
-      for (size_t x{xMin}; x <= xMax; ++x) {
-        for (size_t y{yMin}; y <= yMax; ++y) {
+      for (int x{xMin}; x <= xMax; ++x) {
+        for (int y{yMin}; y <= yMax; ++y) {
           double distance = std::sqrt((x - j) * (x - j) + (y - i) * (y - i));
 
           // if distance from (i, j) > inflation_radius, disregard
@@ -94,6 +99,17 @@ void CostmapNode::inflateObstacles() {
   }
 }
 
+template <size_t ROWS, size_t COLS>
+void flatten(std::array<std::array<int, COLS>, ROWS> &arr,
+             std::vector<int8_t> &flattened) {
+  for (size_t i{0}; i < ROWS; ++i) {
+    for (size_t j{0}; j < COLS; ++j) {
+      // flattened[j + i * COLS] = arr[i][j];
+      flattened.push_back(arr[i][j]);
+    }
+  }
+}
+
 void CostmapNode::publishCostmap(
     const sensor_msgs::msg::LaserScan::SharedPtr scan) {
   auto occGridMsg = nav_msgs::msg::OccupancyGrid();
@@ -104,6 +120,33 @@ void CostmapNode::publishCostmap(
   info.width = CostmapNode::GRIDSIZE;
   info.height = CostmapNode::GRIDSIZE;
   occGridMsg.info = info;
+
+  // int nObstacle = 0, nNonZero = 0, maxVal = 0;
+  // for (auto &row : occupancyGrid)
+  //   for (int v : row) {
+  //     if (v == 100)
+  //       nObstacle++;
+  //     if (v != 0)
+  //       nNonZero++;
+  //     maxVal = std::max(maxVal, v);
+  //   }
+
+  // std::array<int, CostmapNode::GRIDSIZE * CostmapNode::GRIDSIZE> flattened{};
+  std::vector<int8_t> flattened{};
+  flatten(this->occupancyGrid, flattened);
+
+  int nObstacle = 0, nNonZero = 0, maxVal = 0;
+  for (int v : flattened) {
+    if (v == 100)
+      nObstacle++;
+    if (v != 0)
+      nNonZero++;
+    maxVal = std::max(maxVal, v);
+  }
+  RCLCPP_INFO(this->get_logger(), "grid: obstacles=%d nonzero=%d max=%d",
+              nObstacle, nNonZero, maxVal);
+
+  occGridMsg.data = flattened;
 
   publish_->publish(occGridMsg);
 }
