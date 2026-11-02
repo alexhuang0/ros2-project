@@ -67,8 +67,8 @@ void CostmapNode::inflateObstacles() {
   constexpr int max_cost{100};
   constexpr double inflation_radius{1.0 / CostmapNode::RESOLUTION};
 
-  for (size_t i{0}; i < CostmapNode::GRIDSIZE; ++i) {
-    for (size_t j{0}; j < CostmapNode::GRIDSIZE; ++j) {
+  for (int i{0}; i < CostmapNode::GRIDSIZE; ++i) {
+    for (int j{0}; j < CostmapNode::GRIDSIZE; ++j) {
       if (this->occupancyGrid[i][j] != 100)
         continue;
 
@@ -90,8 +90,8 @@ void CostmapNode::inflateObstacles() {
 
           int cost = std::round(max_cost * (1 - (distance / inflation_radius)));
 
-          if (cost > this->occupancyGrid[i][j]) {
-            this->occupancyGrid[i][j] = cost;
+          if (cost > this->occupancyGrid[y][x]) {
+            this->occupancyGrid[y][x] = cost;
           }
         }
       }
@@ -121,30 +121,9 @@ void CostmapNode::publishCostmap(
   info.height = CostmapNode::GRIDSIZE;
   occGridMsg.info = info;
 
-  // int nObstacle = 0, nNonZero = 0, maxVal = 0;
-  // for (auto &row : occupancyGrid)
-  //   for (int v : row) {
-  //     if (v == 100)
-  //       nObstacle++;
-  //     if (v != 0)
-  //       nNonZero++;
-  //     maxVal = std::max(maxVal, v);
-  //   }
-
   // std::array<int, CostmapNode::GRIDSIZE * CostmapNode::GRIDSIZE> flattened{};
   std::vector<int8_t> flattened{};
   flatten(this->occupancyGrid, flattened);
-
-  int nObstacle = 0, nNonZero = 0, maxVal = 0;
-  for (int v : flattened) {
-    if (v == 100)
-      nObstacle++;
-    if (v != 0)
-      nNonZero++;
-    maxVal = std::max(maxVal, v);
-  }
-  RCLCPP_INFO(this->get_logger(), "grid: obstacles=%d nonzero=%d max=%d",
-              nObstacle, nNonZero, maxVal);
 
   occGridMsg.data = flattened;
 

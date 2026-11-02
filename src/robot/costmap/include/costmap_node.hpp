@@ -15,9 +15,9 @@ public:
   CostmapNode();
 
   static constexpr double RESOLUTION{0.1}; // in meters
-  static constexpr int SIZE{41};           // in meters (width and height)
+  static constexpr int SIZE{40};           // in meters (width and height)
   static constexpr int GRIDSIZE{static_cast<int>(
-      SIZE * RESOLUTION * 100)}; // in meters, determines gsize x gsize grid
+      SIZE * RESOLUTION * 100)}; // in cells, determines gsize x gsize grid
   std::array<std::array<int, GRIDSIZE>, GRIDSIZE> occupancyGrid{};
 
   void initializeCostmap();
