@@ -113,14 +113,32 @@ void flatten(std::array<std::array<int, COLS>, ROWS> &arr,
 void CostmapNode::publishCostmap(
     const sensor_msgs::msg::LaserScan::SharedPtr scan) {
   auto occGridMsg = nav_msgs::msg::OccupancyGrid();
+
+  // HEADER
   occGridMsg.header = scan->header;
 
+  // INFO
   auto info = nav_msgs::msg::MapMetaData();
   info.resolution = CostmapNode::RESOLUTION;
   info.width = CostmapNode::GRIDSIZE;
   info.height = CostmapNode::GRIDSIZE;
+
+  // origin (where is bottom left corner based on robot, in meters). i.e. where
+  // is the world's (0,0) origin is publised in robot's frame, so this is a
+  // CONSTANT offset
+  auto origin = geometry_msgs::msg::Pose();
+  origin.position.x = -20;
+  origin.position.y = -20;
+  origin.position.z = 0;
+  origin.orientation.x = 0;
+  origin.orientation.x = 0;
+  origin.orientation.z = 0;
+  origin.orientation.w = 1;
+  info.origin = origin;
+
   occGridMsg.info = info;
 
+  // DATA
   // std::array<int, CostmapNode::GRIDSIZE * CostmapNode::GRIDSIZE> flattened{};
   std::vector<int8_t> flattened{};
   flatten(this->occupancyGrid, flattened);
