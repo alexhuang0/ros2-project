@@ -14,8 +14,31 @@ public:
 private:
   robot::MapMemoryCore map_memory_;
 
+  // subscribers and publisher
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  // global map and robot position
+  nav_msgs::msg::OccupancyGrid global_map_;
+  double last_x, last_y;
+  const double distance_threshold_;
+  bool costmap_updated_ = false;
+
+  // callback for costmap updates
+  void costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
+
+  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+  void updateMap();
+
+  // integrate latest costmap into the global map
+  void integrateCostmap();
+
+  // flags
+  nav_msgs::msg::OccupancyGrid latest_costmap_;
+  bool should_update_map_ = false;
 };
 
 #endif
