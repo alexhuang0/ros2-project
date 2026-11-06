@@ -3,9 +3,9 @@
 MapMemoryNode::MapMemoryNode()
     : Node("map_memory")
     , map_memory_(robot::MapMemoryCore(this->get_logger()))
-    , last_x(0.0)
-    , last_y(0.0)
-    , distance_threshold_(5.0) {
+    , lastX_(0.0)
+    , lastY_(0.0)
+    , distance_threshold_(1.5) {
   costmap_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
       "/costmap", 10,
       std::bind(&MapMemoryNode::costmapCallback, this, std::placeholders::_1));
@@ -34,10 +34,10 @@ void MapMemoryNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
 
   // Compute distance traveled
   double distance =
-      std::sqrt((x - last_x) * (x - last_x) + (y - last_y) * (y - last_y));
+      std::sqrt((x - lastX_) * (x - lastX_) + (y - lastY_) * (y - lastY_));
   if (distance >= distance_threshold_) {
-    last_x = x;
-    last_y = y;
+    lastX_ = x;
+    lastY_ = y;
     should_update_map_ = true;
   }
 }
@@ -53,8 +53,9 @@ void MapMemoryNode::updateMap() {
 
 // Integrate the latest costmap into the global map
 void MapMemoryNode::integrateCostmap() {
-  // Transform and merge the latest costmap into the global map
-  // (Implementation would handle grid alignment and merging logic)
+  // Transform the latest costmap into the global map
+
+  // integrate latest costmap into global map
 }
 
 int main(int argc, char **argv) {

@@ -22,7 +22,7 @@ private:
 
   // global map and robot position
   nav_msgs::msg::OccupancyGrid global_map_;
-  double last_x, last_y;
+  double lastX_, lastY_;
   const double distance_threshold_;
   bool costmap_updated_ = false;
 
