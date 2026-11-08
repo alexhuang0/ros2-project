@@ -11,6 +11,11 @@ class MapMemoryNode : public rclcpp::Node {
 public:
   MapMemoryNode();
 
+  static constexpr double RESOLUTION{0.1}; // in meters
+  static constexpr int SIZE{25};           // in meters (width and height)
+  static constexpr int GRIDSIZE{static_cast<int>(
+      SIZE * RESOLUTION * 100)}; // in cells, determines gsize x gsize grid
+
 private:
   robot::MapMemoryCore map_memory_;
 
@@ -23,6 +28,7 @@ private:
   // global map and robot position
   nav_msgs::msg::OccupancyGrid global_map_;
   double lastX_, lastY_;
+  geometry_msgs::msg::Quaternion orientation_;
   const double distance_threshold_;
   bool costmap_updated_ = false;
 
