@@ -32,7 +32,7 @@ void CostmapNode::lidar_callback(
     double range = scan->ranges[i];
     if (range < scan->range_max && range > scan->range_min) {
       // Calculate grid coordinates
-      int x_grid, y_grid;
+      int x_grid{0}, y_grid{0};
       convertToGrid(range, angle, x_grid, y_grid);
       markObstacle(x_grid, y_grid);
     }
@@ -49,16 +49,16 @@ void CostmapNode::initializeCostmap() {}
 
 void CostmapNode::convertToGrid(double range, double angle, int &x_grid,
                                 int &y_grid) {
-  x_grid = std::round(range * std::cos(angle) * CostmapNode::RESOLUTION * 100 +
-                      std::floor(SIZE / 2));
-  y_grid = std::round(range * std::sin(angle) * CostmapNode::RESOLUTION * 100 +
-                      std::floor(SIZE / 2));
+  x_grid = std::round(range * std::cos(angle) / RESOLUTION + GRIDSIZE);
+  y_grid = std::round(range * std::sin(angle) / RESOLUTION + GRIDSIZE);
 }
 
 void CostmapNode::markObstacle(int x_grid, int y_grid) {
 
-  if (x_grid >= 0 && x_grid < CostmapNode::GRIDSIZE && y_grid >= 0 &&
-      y_grid < CostmapNode::GRIDSIZE) {
+  if (x_grid >= 0 && x_grid < CostmapNode::GRIDSIZE && y_grid > 0 &&
+      y_grid <= CostmapNode::GRIDSIZE) {
+    // range of y_grid is (0, GRIDSIZE] since we're compute GRIDSIZE - y_grid,
+    // which has range [0, GRIDSIZE)
     this->occupancyGrid[CostmapNode::GRIDSIZE - y_grid][x_grid] = 100;
   }
 }
@@ -139,7 +139,6 @@ void CostmapNode::publishCostmap(
   occGridMsg.info = info;
 
   // DATA
-  // std::array<int, CostmapNode::GRIDSIZE * CostmapNode::GRIDSIZE> flattened{};
   std::vector<int8_t> flattened{};
   flatten(this->occupancyGrid, flattened);
 
