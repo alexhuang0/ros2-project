@@ -45,21 +45,28 @@ void CostmapNode::lidar_callback(
   publishCostmap(scan);
 }
 
-void CostmapNode::initializeCostmap() {}
+void CostmapNode::initializeCostmap() {
+  for (auto &row : occupancyGrid) {
+    row.fill(0); // Fills each inner array with 0
+  }
+}
 
 void CostmapNode::convertToGrid(double range, double angle, int &x_grid,
                                 int &y_grid) {
-  x_grid = std::round(range * std::cos(angle) / RESOLUTION + GRIDSIZE);
-  y_grid = std::round(range * std::sin(angle) / RESOLUTION + GRIDSIZE);
+  x_grid = std::round(range * std::cos(angle) / RESOLUTION + GRIDSIZE / 2);
+  y_grid = std::round(range * std::sin(angle) / RESOLUTION + GRIDSIZE / 2);
 }
 
 void CostmapNode::markObstacle(int x_grid, int y_grid) {
 
-  if (x_grid >= 0 && x_grid < CostmapNode::GRIDSIZE && y_grid > 0 &&
-      y_grid <= CostmapNode::GRIDSIZE) {
-    // range of y_grid is (0, GRIDSIZE] since we're compute GRIDSIZE - y_grid,
-    // which has range [0, GRIDSIZE)
-    this->occupancyGrid[CostmapNode::GRIDSIZE - y_grid][x_grid] = 100;
+  if (x_grid >= 0 && x_grid < CostmapNode::GRIDSIZE && y_grid >= 0 &&
+      y_grid < CostmapNode::GRIDSIZE) {
+    // can simply store into y_grid even if array's "y-axis" grows from top to
+    // bottom. This is bc we tell Foxglove that the costmap's origin sits at
+    // (-20, -20) from robot so when Foxglove reads the data array, when y
+    // increases, it is increasing from BOTTOM to top, in RESOLUTION steps
+    // (0.1m/cell)
+    this->occupancyGrid[y_grid][x_grid] = 100;
   }
 }
 
@@ -131,7 +138,7 @@ void CostmapNode::publishCostmap(
   origin.position.y = -20;
   origin.position.z = 0;
   origin.orientation.x = 0;
-  origin.orientation.x = 0;
+  origin.orientation.y = 0;
   origin.orientation.z = 0;
   origin.orientation.w = 1;
   info.origin = origin;
@@ -143,6 +150,19 @@ void CostmapNode::publishCostmap(
   flatten(this->occupancyGrid, flattened);
 
   occGridMsg.data = flattened;
+
+  // int nObstacle = 0, nNonZero = 0, maxVal = 0;
+  // for (auto &row : occupancyGrid)
+  //   for (int v : row) {
+  //     if (v == 100)
+  //       nObstacle++;
+  //     if (v != 0)
+  //       nNonZero++;
+  //     maxVal = std::max(maxVal, v);
+  //   }
+  // RCLCPP_INFO(this->get_logger(), "obstacles=%d nonzero=%d max=%d",
+  // nObstacle,
+  //             nNonZero, maxVal);
 
   publish_->publish(occGridMsg);
 }

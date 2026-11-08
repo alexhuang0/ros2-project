@@ -19,7 +19,10 @@ MapMemoryNode::MapMemoryNode()
                                    std::bind(&MapMemoryNode::updateMap, this));
 
   // publish initial empty map to help planner node
-  global_map_.data.assign(GRIDSIZE, 0);
+  global_map_.info.resolution = RESOLUTION;
+  global_map_.info.width = GRIDSIZE;
+  global_map_.info.height = GRIDSIZE;
+  global_map_.data.assign(GRIDSIZE * GRIDSIZE, 0);
   // possibly need to set Header and Info?
   map_pub_->publish(global_map_);
 }
@@ -58,8 +61,8 @@ void MapMemoryNode::updateMap() {
 }
 
 double extractYaw(geometry_msgs::msg::Quaternion &q) {
-  std::atan2(2.0 * (q.w * q.z + q.x * q.y),
-             1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  return std::atan2(2.0 * (q.w * q.z + q.x * q.y),
+                    1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 }
 
 // Integrate the latest costmap into the global map
@@ -69,20 +72,30 @@ void MapMemoryNode::integrateCostmap() {
 
   nav_msgs::msg::OccupancyGrid costmap_world_pov{this->latest_costmap_};
 
-  for (int i{0}, rowCtr{0}; i < std::size(costmap_world_pov.data); ++i) {
+  for (int i{0}, rowCtr{0}; i < costmap_world_pov.data.size(); ++i) {
     if ((rowCtr + 1) % costmap_world_pov.info.height == 0) {
       rowCtr = 0;
     }
-    int obstacle_x{i - rowCtr * costmap_world_pov.info.width},
-        obstacle_y{(i - obstacle_x) / costmap_world_pov.info.width};
+    int obstacle_x{i - rowCtr * static_cast<int>(costmap_world_pov.info.width)},
+        obstacle_y{(i - obstacle_x) /
+                   static_cast<int>(costmap_world_pov.info.width)};
 
     // translation + rotation matrix
     int world_x{static_cast<int>(std::round(
         lastX_ + std::cos(yaw) * obstacle_x - std::sin(yaw) * obstacle_y))};
     int world_y{static_cast<int>(std::round(
         lastY_ + std::sin(yaw) * obstacle_x + std::cos(yaw) * obstacle_y))};
-    world_x = std::min(world_x, GRIDSIZE);
-    world_y = std::max(world_y, -GRIDSIZE);
+    if (world_x < 0)
+      world_x = std::max(world_x, -GRIDSIZE);
+    else {
+      world_x = std::min(world_x, GRIDSIZE);
+    }
+
+    if (world_y < 0)
+      world_y = std::max(world_y, -GRIDSIZE);
+    else {
+      world_y = std::min(world_y, GRIDSIZE);
+    }
 
     // integrate latest costmap into world map
     int global_idx = world_x + world_y * GRIDSIZE; // row-major

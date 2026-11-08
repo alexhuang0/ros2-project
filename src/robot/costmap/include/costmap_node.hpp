@@ -14,7 +14,7 @@ class CostmapNode : public rclcpp::Node {
 public:
   CostmapNode();
 
-  static constexpr double RESOLUTION{0.1}; // cells/meter
+  static constexpr double RESOLUTION{0.1}; // meters/cell
   static constexpr int SIZE{40};           // in meters (width and height)
   static constexpr int GRIDSIZE{static_cast<int>(
       SIZE / RESOLUTION)}; // in cells, determines gsize x gsize grid
