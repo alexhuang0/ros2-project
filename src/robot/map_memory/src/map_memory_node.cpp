@@ -5,6 +5,8 @@ MapMemoryNode::MapMemoryNode()
     , map_memory_(robot::MapMemoryCore(this->get_logger()))
     , lastX_(0.0)
     , lastY_(0.0)
+    , currentX_(0.0)
+    , currentY_(0.0)
     , distance_threshold_(1.5) {
   costmap_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
       "/costmap", 10,
@@ -42,16 +44,16 @@ void MapMemoryNode::costmapCallback(
 
 // Callback for odometry updates
 void MapMemoryNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-  double x = msg->pose.pose.position.x;
-  double y = msg->pose.pose.position.y;
+  currentX_ = msg->pose.pose.position.x;
+  currentY_ = msg->pose.pose.position.y;
+  orientation_ = msg->pose.pose.orientation;
 
   // Compute distance traveled
-  double distance =
-      std::sqrt((x - lastX_) * (x - lastX_) + (y - lastY_) * (y - lastY_));
+  double distance = std::sqrt((currentX_ - lastX_) * (currentX_ - lastX_) +
+                              (currentY_ - lastY_) * (currentY_ - lastY_));
   if (distance >= distance_threshold_) {
-    lastX_ = x;
-    lastY_ = y;
-    orientation_ = msg->pose.pose.orientation;
+    lastX_ = currentX_;
+    lastY_ = currentY_;
     should_update_map_ = true;
   }
 }
@@ -75,17 +77,18 @@ void MapMemoryNode::integrateCostmap() {
   // Transform the latest costmap into the global map
   double yaw{extractYaw(this->orientation_)};
 
-  nav_msgs::msg::OccupancyGrid costmap_world_pov{this->latest_costmap_};
-  int nObstacle = 0, nNonZero = 0, maxVal = 0;
-  for (int8_t v : latest_costmap_.data) {
-    if (v == 100)
-      nObstacle++;
-    if (v != 0)
-      nNonZero++;
-    maxVal = std::max(maxVal, static_cast<int>(v));
-  }
-  RCLCPP_INFO(this->get_logger(), "new costmap: obstacles=%d nonzero=%d max=%d",
-              nObstacle, nNonZero, maxVal);
+  // nav_msgs::msg::OccupancyGrid costmap_world_pov{this->latest_costmap_};
+  // int nObstacle = 0, nNonZero = 0, maxVal = 0;
+  // for (int8_t v : latest_costmap_.data) {
+  //   if (v == 100)
+  //     nObstacle++;
+  //   if (v != 0)
+  //     nNonZero++;
+  //   maxVal = std::max(maxVal, static_cast<int>(v));
+  // }
+  // RCLCPP_INFO(this->get_logger(), "new costmap: obstacles=%d nonzero=%d
+  // max=%d",
+  //             nObstacle, nNonZero, maxVal);
 
   for (int i{0}, rowCtr{-1}; i < latest_costmap_.data.size(); ++i) {
     if (i % latest_costmap_.info.width == 0) {
@@ -103,10 +106,10 @@ void MapMemoryNode::integrateCostmap() {
     // translation + rotation matrix
     // coords are in cells
     // origin is center of map
-    int world_x{static_cast<int>(std::round(lastX_ / RESOLUTION +
+    int world_x{static_cast<int>(std::round(currentX_ / RESOLUTION +
                                             std::cos(yaw) * obstacle_x -
                                             std::sin(yaw) * obstacle_y))};
-    int world_y{static_cast<int>(std::round(lastY_ / RESOLUTION +
+    int world_y{static_cast<int>(std::round(currentY_ / RESOLUTION +
                                             std::sin(yaw) * obstacle_x +
                                             std::cos(yaw) * obstacle_y))};
 
@@ -119,22 +122,23 @@ void MapMemoryNode::integrateCostmap() {
         world_y_cells < GRIDSIZE) {
       int global_idx = world_x_cells + world_y_cells * GRIDSIZE;
       if (latest_costmap_.data[i] != 0) {
-        global_map_.data[global_idx] = latest_costmap_.data[i];
+        global_map_.data[global_idx] =
+            std::max(latest_costmap_.data[i], global_map_.data[global_idx]);
       }
     }
   }
 
-  int obstacles = 0, nonzero = 0, maxVal2 = 0;
-  for (int8_t v : global_map_.data) {
-    if (v == 100)
-      obstacles++;
-    if (v != 0)
-      nonzero++;
-    maxVal2 = std::max(maxVal2, static_cast<int>(v));
-  }
-  RCLCPP_INFO(this->get_logger(),
-              "integrated costmap: obstacles=%d nonzero=%d max=%d", obstacles,
-              nonzero, maxVal2);
+  // int obstacles = 0, nonzero = 0, maxVal2 = 0;
+  // for (int8_t v : global_map_.data) {
+  //   if (v == 100)
+  //     obstacles++;
+  //   if (v != 0)
+  //     nonzero++;
+  //   maxVal2 = std::max(maxVal2, static_cast<int>(v));
+  // }
+  // RCLCPP_INFO(this->get_logger(),
+  //             "integrated costmap: obstacles=%d nonzero=%d max=%d",
+  //             obstacles, nonzero, maxVal2);
 }
 
 int main(int argc, char **argv) {
