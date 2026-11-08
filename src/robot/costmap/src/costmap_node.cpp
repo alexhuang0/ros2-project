@@ -134,8 +134,8 @@ void CostmapNode::publishCostmap(
   // is the world's (0,0) origin is publised in robot's frame, so this is a
   // CONSTANT offset
   auto origin = geometry_msgs::msg::Pose();
-  origin.position.x = -20;
-  origin.position.y = -20;
+  origin.position.x = -SIZE / 2;
+  origin.position.y = -SIZE / 2;
   origin.position.z = 0;
   origin.orientation.x = 0;
   origin.orientation.y = 0;
