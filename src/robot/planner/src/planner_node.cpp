@@ -34,6 +34,60 @@ so each node also stores its origin (since diagonal is not same cost as horiz/ve
 kind of a linked list so we can retrace path
 */
 
+void mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+  current_map_ = *msg;
+  if (state == State::WAITING_FOR_ROBOT_TO_REACH_GOAL) {
+    planPath();
+  }
+}
+
+void goalCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg) {
+  goal_ = *msg;
+  goal_received_ = true;
+  state_ = State::WAITING_FOR_ROBOT_TO_REACH_GOAL;
+  planPath();
+}
+
+void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+  robot_pose_ = msg->pose.pose
+}
+
+void timerCallback() {
+  if (state_ == State::WAITING_FOR_ROBOT_TO_REACH_GOAL) {
+    if (goalReached()) {
+      RCLCPP_INFO(this->get_logger(), "Goal reached!");
+      state_ = State::WAITING_FOR_GOAL;
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Replanning due to timeout or progress stall...");
+      planPath();
+    }
+  }
+}
+
+bool goalReached() {
+  double dx{goal_.point.x - robot_pose_.position.x};
+  double dy{goal_.point.y - robot_pose_.position.y};
+  
+  // distance from goal is less than sqr(0.7) ~= 0.5
+  return dx * dx - dy * dy <= 0.7;
+}
+
+void planPath() {
+  if (!goal_received_ || current_map_.data.empty()) {
+    RCLCPP_INFO(this->get_logger(), "Can't plan a path: missing map or goal");
+    return;
+  }
+
+  // A* implementation
+  nav_msgs::msg::Path path;
+  path.header.stamp = this->get_clock()->now();
+  path.header.frame_id = "map";
+
+  // fill path.poses with path waypoints
+
+  path_pub_->publish(path);
+}
+
 
 int main(int argc, char ** argv)
 {
