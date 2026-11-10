@@ -10,6 +10,8 @@ class PlannerNode : public rclcpp::Node {
     PlannerNode();
 
   private:
+    robot::PlannerCore planner_;
+    
     enum class State { WAITING_FOR_GOAL, WAITING_FOR_ROBOT_TO_REACH_GOAL };
     State state_;
 
@@ -27,7 +29,15 @@ class PlannerNode : public rclcpp::Node {
  
     bool goal_received_ = false;
 
-    robot::PlannerCore planner_;
+    void mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
+    void goalCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
+    void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void timerCallback();
+
+    bool goalReached();
+
+    // A* algorithm
+    void planPath();
 };
 
 #endif 
