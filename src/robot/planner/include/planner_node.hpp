@@ -7,6 +7,7 @@
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include "a_star.hpp"
 #include "planner_core.hpp"
 
 class PlannerNode : public rclcpp::Node {
@@ -40,7 +41,9 @@ private:
 
   bool goalReached();
 
-  // A* algorithm
+  // A* algorithm stuff
+  std::vector<AStarNode> getNeighbours(AStarNode &current);
+  double PlannerNode::calc_f_cost(AStarNode &current);
   void planPath();
 };
 
