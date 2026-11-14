@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <vector>
 
+constexpr double SQRT2{1.414213562373095048801688724209698079};
+
 PlannerNode::PlannerNode()
     : Node("planner")
     , planner_(robot::PlannerCore(this->get_logger())) {
@@ -73,8 +75,6 @@ bool PlannerNode::goalReached() {
 std::vector<AStarNode> PlannerNode::getNeighbours(AStarNode &current) {
   std::vector<AStarNode> neighbours{};
 
-  constexpr double SQRT2{1.414213562373095048801688724209698079};
-
   for (int dx{-1}; dx <= 1; ++dx) {
     for (int dy{-1}; dy <= 1; ++dy) {
       if (dx == 0 && dy == 0)
@@ -125,6 +125,10 @@ void PlannerNode::setPath(nav_msgs::msg::Path &path,
                           CellIndex &end, CellIndex &robot_cell) {
   CellIndex cur{end};
 
+  // RCLCPP_INFO(this->get_logger(),
+  //             "in setPath fct, coming from (%d, %d), ending at (%d, %d)",
+  //             robot_cell.x, robot_cell.y, end.x, end.y);
+
   std::vector<geometry_msgs::msg::PoseStamped> path_poses;
 
   while (cur != robot_cell) {
@@ -140,6 +144,8 @@ void PlannerNode::setPath(nav_msgs::msg::Path &path,
 
     cur = came_from_map[cur.y][cur.x];
   }
+  // RCLCPP_INFO(this->get_logger(), "%lu length of path poses",
+  //             path_poses.size());
 
   std::reverse(path_poses.begin(), path_poses.end());
   path.set__poses(path_poses);
@@ -178,13 +184,14 @@ void PlannerNode::planPath() {
   open.push(
       {start, 0}); // initialized w/ 0 f-cost cuz it doesn't matter for 1st node
   g_score_map[robot_y_grid][robot_x_grid] = 0;
-
   while (!open.empty()) {
     AStarNode cur = open.top();
     open.pop();
     closed.insert(cur.index);
 
-    if (goalReached()) {
+    if (calc_h_cost(cur) <= SQRT2) { // <= sqrt 2 cuz h_cost is in cells unit
+      // RCLCPP_INFO(this->get_logger(), "found the goal, calling set path
+      // now");
       setPath(path, came_from_map, cur.index, start);
     }
 
@@ -213,6 +220,8 @@ void PlannerNode::planPath() {
       }
     }
   }
+
+  // RCLCPP_INFO(this->get_logger(), "path finished planning, publishing");
 
   path_pub_->publish(path);
 }
