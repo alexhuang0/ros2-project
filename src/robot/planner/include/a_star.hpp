@@ -36,9 +36,7 @@ struct CellIndexHash {
 // Structure representing a node in the A* open set
 struct AStarNode {
   CellIndex index;
-  double g_score_delta; // cost of the path ALREADY TRAVELLED to this node
-                        // (known, exact)
-  double h_score; // estimated euclidean distance to goal (guessed, heuristic)
+  double g_score_delta;
   double f_score; // f = g + h
   std::queue<CellIndex> came_from;
 

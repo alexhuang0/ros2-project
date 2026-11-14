@@ -43,10 +43,10 @@ private:
   int worldToGrid(double world_coord) {
     return static_cast<int>(
         std::round((world_coord / current_map_.info.resolution) +
-                   current_map_.info.width));
+                   current_map_.info.width / 2));
   }
   double gridToWorld(int grid_coord) {
-    return (grid_coord - current_map_.info.width) *
+    return (grid_coord - current_map_.info.width / 2) *
            current_map_.info.resolution;
   }
 

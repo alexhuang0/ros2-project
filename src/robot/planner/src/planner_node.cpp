@@ -56,7 +56,7 @@ void PlannerNode::timerCallback() {
       state_ = State::WAITING_FOR_GOAL;
     } else {
       RCLCPP_INFO(this->get_logger(),
-                  "Replanning due to timeout or progress stall...");
+                  "Replanning due to timeout or progress...");
       planPath();
     }
   }
@@ -67,7 +67,7 @@ bool PlannerNode::goalReached() {
   double dy{goal_.point.y - robot_pose_.position.y};
 
   // distance from goal is less than sqr(0.7) ~= 0.5
-  return dx * dx - dy * dy <= 0.7;
+  return dx * dx + dy * dy <= 0.7;
 }
 
 std::vector<AStarNode> PlannerNode::getNeighbours(AStarNode &current) {
@@ -157,31 +157,14 @@ void PlannerNode::planPath() {
 
   // A* implementation
 
-  /*
-A* notes
-G-cost: distance from origin
-H-cost: distance from goal
-F-cost: g + h
-
-at every step, explore path with smallest F-cost. once that path is explored, it
-is blocked and marked as such
-- if >1 path have same F-cost, pick the one with the smallest H-cost
-- same h-cost, explore either one
-
-we are exploring smallest F-cost across ALL THE possible options we've computed.
-possibly popping off of a min heap or smt?
-
-5min: options we explore also update past options since we might have discovered
-a new shortest path so each node also stores its origin (since diagonal is not
-same cost as horiz/vert) kind of a linked list so we can retrace path
-*/
-
-  // requires more std::unordered_map<CellIndex, int, CellIndexHash> visitCount;
   std::unordered_set<CellIndex, CellIndexHash>
       closed; // set of nodes already evaluated
   std::priority_queue<AStarNode, std::vector<AStarNode>, CompareF> open;
-  std::vector<std::vector<CellIndex>>
-      came_from_map; // each cell index holds its parent cell index in the path
+
+  // each cell index holds its parent cell index in the path
+  std::vector<std::vector<CellIndex>> came_from_map(
+      current_map_.info.height,
+      std::vector<CellIndex>(current_map_.info.width, CellIndex(-1, -1)));
 
   std::vector<std::vector<double>> g_score_map(
       current_map_.info.height,
@@ -217,8 +200,10 @@ same cost as horiz/vert) kind of a linked list so we can retrace path
       if (neighbour_g_score <
           g_score_map[neighbour.index.y][neighbour.index.x]) {
 
+        // cost of the path ALREADY TRAVELLED to this node (known, exact)
         g_score_map[neighbour.index.y][neighbour.index.x] = neighbour_g_score;
 
+        // estimated euclidean distance to goal (guessed, heuristic)
         double h_score = calc_h_cost(neighbour);
         neighbour.f_score = neighbour_g_score + h_score;
 
