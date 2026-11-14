@@ -21,3 +21,4 @@ services:
       - develop
     volumes:
       - ${MONO_DIR}/src/robot:/home/bolty/ament_ws/src
+      - ${MONO_DIR}/scripts:/home/bolty/ament_ws/src/scripts

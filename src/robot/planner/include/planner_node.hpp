@@ -39,11 +39,25 @@ private:
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void timerCallback();
 
+  // assumes n x n map
+  int worldToGrid(double world_coord) {
+    return static_cast<int>(
+        std::round((world_coord / current_map_.info.resolution) +
+                   current_map_.info.width));
+  }
+  double gridToWorld(int grid_coord) {
+    return (grid_coord - current_map_.info.width) *
+           current_map_.info.resolution;
+  }
+
   bool goalReached();
 
   // A* algorithm stuff
   std::vector<AStarNode> getNeighbours(AStarNode &current);
-  double PlannerNode::calc_f_cost(AStarNode &current);
+  double calc_h_cost(AStarNode &current);
+  void setPath(nav_msgs::msg::Path &path,
+               std::vector<std::vector<CellIndex>> &came_from_map,
+               CellIndex &end, CellIndex &robot_cell);
   void planPath();
 };
 

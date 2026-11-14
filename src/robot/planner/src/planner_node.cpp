@@ -1,5 +1,6 @@
 #include "planner_node.hpp"
 
+#include <limits>
 #include <numbers>
 #include <queue>
 #include <unordered_set>
@@ -69,14 +70,6 @@ bool PlannerNode::goalReached() {
   return dx * dx - dy * dy <= 0.7;
 }
 
-void calc_g_score(AStarNode &current, AStarNode &neighbour) {
-
-  // if (current.index.x == neighbour.index.x
-  // || current.index.y == neighbour.index.y) {
-  //   neighbour.g_score +=
-  // }
-}
-
 std::vector<AStarNode> PlannerNode::getNeighbours(AStarNode &current) {
   std::vector<AStarNode> neighbours{};
 
@@ -91,12 +84,12 @@ std::vector<AStarNode> PlannerNode::getNeighbours(AStarNode &current) {
       int new_y{current.index.y + dy};
 
       // out of bounds
-      if (new_x < 0 || new_x >= current_map_.info.width || new_y < 0 ||
-          new_y >= current_map_.info.width) {
+      int mapSize{static_cast<int>(current_map_.info.width)};
+      if (new_x < 0 || new_x >= mapSize || new_y < 0 || new_y >= mapSize) {
         continue;
       }
 
-      int map_idx{new_x + (new_y * current_map_.info.width)};
+      int map_idx{new_x + (new_y * mapSize)};
 
       // is an obstacle
       if (current_map_.data[map_idx] > 0) {
@@ -107,9 +100,9 @@ std::vector<AStarNode> PlannerNode::getNeighbours(AStarNode &current) {
 
       // we have a valid neighbour now
       if (dx != 0 && dy != 0) {
-        neighbour.g_score += SQRT2;
+        neighbour.g_score_delta += SQRT2;
       } else {
-        neighbour.g_score += 1;
+        neighbour.g_score_delta += 1;
       }
 
       CellIndex cIdx{new_x, new_y};
@@ -117,12 +110,39 @@ std::vector<AStarNode> PlannerNode::getNeighbours(AStarNode &current) {
       neighbours.emplace_back(cIdx, 0);
     }
   }
+
+  return neighbours;
 }
 
-double PlannerNode::calc_f_cost(AStarNode &current) {
-  double dx{goal_.point.x - current.index.x},
-      dy{goal_.point.y - current.index.y};
+double PlannerNode::calc_h_cost(AStarNode &current) {
+  int dx{worldToGrid(goal_.point.x) - current.index.x},
+      dy{worldToGrid(goal_.point.y) - current.index.y};
   return std::sqrt(dx * dx + dy * dy);
+}
+
+void PlannerNode::setPath(nav_msgs::msg::Path &path,
+                          std::vector<std::vector<CellIndex>> &came_from_map,
+                          CellIndex &end, CellIndex &robot_cell) {
+  CellIndex cur{end};
+
+  std::vector<geometry_msgs::msg::PoseStamped> path_poses;
+
+  while (cur != robot_cell) {
+    double world_x{gridToWorld(cur.x)};
+    double world_y{gridToWorld(cur.y)};
+
+    geometry_msgs::msg::PoseStamped pose_stamped;
+
+    pose_stamped.header.set__frame_id("map");
+    pose_stamped.pose.position.set__x(world_x);
+    pose_stamped.pose.position.set__y(world_y);
+    path_poses.emplace_back(pose_stamped);
+
+    cur = came_from_map[cur.y][cur.x];
+  }
+
+  std::reverse(path_poses.begin(), path_poses.end());
+  path.set__poses(path_poses);
 }
 
 void PlannerNode::planPath() {
@@ -157,45 +177,54 @@ same cost as horiz/vert) kind of a linked list so we can retrace path
 */
 
   // requires more std::unordered_map<CellIndex, int, CellIndexHash> visitCount;
-  std::unordered_set<AStarNode> closed; // set of nodes already evaluated
+  std::unordered_set<CellIndex, CellIndexHash>
+      closed; // set of nodes already evaluated
   std::priority_queue<AStarNode, std::vector<AStarNode>, CompareF> open;
   std::vector<std::vector<CellIndex>>
       came_from_map; // each cell index holds its parent cell index in the path
-  std::vector<std::vector<double>> g_score_map; // g_scores
 
-  int robot_x_grid{static_cast<int>(
-      std::round(robot_pose_.position.x / current_map_.info.resolution))};
-  int robot_y_grid{static_cast<int>(
-      std::round(robot_pose_.position.y / current_map_.info.resolution))};
+  std::vector<std::vector<double>> g_score_map(
+      current_map_.info.height,
+      std::vector<double>(current_map_.info.width,
+                          std::numeric_limits<double>::max())); // g_scores
+
+  int robot_x_grid{worldToGrid(robot_pose_.position.x)};
+  int robot_y_grid{worldToGrid(robot_pose_.position.y)};
 
   CellIndex start(robot_x_grid, robot_y_grid);
   open.push(
       {start, 0}); // initialized w/ 0 f-cost cuz it doesn't matter for 1st node
+  g_score_map[robot_y_grid][robot_x_grid] = 0;
 
   while (!open.empty()) {
     AStarNode cur = open.top();
     open.pop();
-    closed.insert(cur);
+    closed.insert(cur.index);
 
     if (goalReached()) {
-      // backtracking
-      // fill path.poses with path waypoints
+      setPath(path, came_from_map, cur.index, start);
     }
 
     for (AStarNode neighbour : getNeighbours(cur)) {
-      if (closed.find(neighbour) != closed.end() || isObstacle(neighbour)) {
+      if (closed.find(neighbour.index) != closed.end()) {
         continue;
       }
 
-      // neighbour isn't in OPEN (haven't calculated f_cost yet) or new path to
-      // neighbour is shorter
-      if (open.find(neighbour) != open.end() ||) {
-        neighbour.f_score = calc_f_cost(neighbour);
+      double neighbour_g_score{g_score_map[cur.index.y][cur.index.x] +
+                               neighbour.g_score_delta};
+
+      // new path to neighbour is shorter
+      if (neighbour_g_score <
+          g_score_map[neighbour.index.y][neighbour.index.x]) {
+
+        g_score_map[neighbour.index.y][neighbour.index.x] = neighbour_g_score;
+
+        double h_score = calc_h_cost(neighbour);
+        neighbour.f_score = neighbour_g_score + h_score;
+
         came_from_map[neighbour.index.y][neighbour.index.x] = cur.index;
 
-        if (open.find(neighbour) != open.end()) {
-          open.emplace(neighbour);
-        }
+        open.emplace(neighbour);
       }
     }
   }
